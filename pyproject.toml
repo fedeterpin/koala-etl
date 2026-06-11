@@ -1,0 +1,15 @@
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+src = ["backend", "."]
+extend-exclude = ["etl-legacy", "frontend", "backend/alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501", "B008"]  # B008: FastAPI Depends() en defaults es idiomático
+
+[tool.pytest.ini_options]
+pythonpath = ["backend", "."]
+testpaths = ["backend/tests"]
+asyncio_mode = "auto"
+filterwarnings = ["ignore::DeprecationWarning"]

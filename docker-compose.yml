@@ -1,0 +1,113 @@
+name: koala
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: koala
+      POSTGRES_PASSWORD: koala
+      POSTGRES_DB: koala
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U koala -d koala"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: koala
+      MINIO_ROOT_PASSWORD: koala-secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 koala koala-secret &&
+      mc mb --ignore-existing local/koala-files
+      "
+
+  backend:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.backend
+    command: >
+      sh -c "alembic upgrade head &&
+             python -m app.seed --if-empty &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    environment: &app_env
+      DATABASE_URL: postgresql+asyncpg://koala:koala@postgres:5432/koala
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_BUCKET: koala-files
+      S3_ACCESS_KEY: koala
+      S3_SECRET_KEY: koala-secret
+      JWT_SECRET: dev-secret-no-usar-en-prod
+      CREDENTIALS_ENCRYPTION_KEY: "qbn1jH0Yp0Vb8L2K3M4N5O6P7Q8R9S0T1U2V3W4X5Y8="
+      CORS_ORIGINS: http://localhost:5173
+      LOG_LEVEL: INFO
+    volumes:
+      - ./backend/app:/code/app
+      - ./backend/alembic:/code/alembic
+      - ./worker:/code/worker
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/api/v1/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.backend
+    command: python -m worker.main
+    environment: *app_env
+    volumes:
+      - ./backend/app:/code/app
+      - ./worker:/code/worker
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.frontend
+    command: npm run dev -- --host 0.0.0.0
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    volumes:
+      - ./frontend:/code
+      - /code/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  miniodata:

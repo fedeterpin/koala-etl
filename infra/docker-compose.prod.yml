@@ -1,0 +1,50 @@
+# Producción v1: EC2 + RDS + S3 (la DB y el storage NO corren acá).
+# Uso: docker compose -f infra/docker-compose.prod.yml --env-file .env.prod up -d
+name: koala-prod
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN:?definir DOMAIN en .env.prod}
+    depends_on:
+      - backend
+      - frontend
+
+  backend:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
+    env_file: ../.env.prod
+    expose:
+      - "8000"
+
+  worker:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    restart: unless-stopped
+    command: python -m worker.main
+    env_file: ../.env.prod
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.frontend.prod
+    restart: unless-stopped
+    expose:
+      - "80"
+
+volumes:
+  caddy_data:
+  caddy_config:

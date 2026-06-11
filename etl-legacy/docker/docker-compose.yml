@@ -1,0 +1,39 @@
+# Entorno de pruebas: SQL Server + Metabase
+# Uso:
+#   docker compose -f docker/docker-compose.yml up -d
+# Luego:
+#   1) Conectarte a SQL Server (localhost,1433 / sa / Koala_Test_2025!) con SSMS o Azure Data Studio
+#   2) Ejecutar, en orden:  esquema -> ALTER status -> datos_prueba_volumen.sql
+#   3) Abrir Metabase en http://localhost:3000 y conectar el origen "SQL Server" -> base KoalaETL
+#
+# NOTA: esto NO corre el ETL de Python (que tiene rutas C:\KoalaETL y necesita Botmaker).
+#       Sirve para probar la base, dashboards y el futuro frontend con los datos de prueba.
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: koala-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Koala_Test_2025!"   # debe cumplir la política de complejidad
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - koala_mssql_data:/var/opt/mssql
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: koala-metabase
+    ports:
+      - "3000:3000"
+    depends_on:
+      - sqlserver
+    volumes:
+      - koala_metabase_data:/metabase-data
+    environment:
+      MB_DB_FILE: /metabase-data/metabase.db
+
+volumes:
+  koala_mssql_data:
+  koala_metabase_data:

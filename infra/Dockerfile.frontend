@@ -1,0 +1,11 @@
+FROM node:24-slim
+
+WORKDIR /code
+
+COPY frontend/package.json frontend/package-lock.json* /code/
+RUN npm install
+
+COPY frontend /code
+
+EXPOSE 5173
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

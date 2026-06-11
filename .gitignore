@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Env / secretos
+.env
+.env.*
+!.env.example
+
+# Datos locales
+.pgdata*/
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
