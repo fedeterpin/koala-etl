@@ -6,6 +6,7 @@ exactos en las métricas (ver factories.py).
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 # ——— Entorno ANTES de importar la app (get_settings está cacheado) ———
@@ -65,7 +66,7 @@ def database():
     env = os.environ.copy()
     env["ALEMBIC_DATABASE_URL"] = SYNC_URL
     subprocess.run(
-        [str(REPO_ROOT / ".venv/bin/alembic"), "upgrade", "head"],
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
         cwd=REPO_ROOT / "backend", env=env, check=True, capture_output=True,
     )
     yield engine
